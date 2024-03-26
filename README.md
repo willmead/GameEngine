@@ -7,6 +7,7 @@
     * Currently they works perfectly in one dimension along the y-axis
     * Implement a more complex algorithm to stop / bounce at multiple angles
 
+
 ## Soon
 
 * First Game: PONG!
