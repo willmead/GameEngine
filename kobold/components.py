@@ -1,16 +1,39 @@
+from enum import Enum
+from kobold.geometry import Rectangle, Vector
+
+
 class Component:
     pass
 
 
+##########
+# MOVEMENT
+##########
+
 class Position(Component):
 
-    def __init__(self, x: int, y: int) -> None:
+    def __init__(self, position: Vector) -> None:
         self.name = 'Position'
-        self.x = x
-        self.y = y
-        self.last_valid_x = x
-        self.last_valid_y = y
+        self.position = position
+        
 
+class Velocity(Component):
+
+    def __init__(self, velocity: Vector) -> None:
+        self.name = 'Velocity'
+        self.velocity = velocity
+
+
+class Acceleration(Component):
+
+    def __init__(self, acceleration: Vector) -> None:
+        self.name = 'Acceleration'
+        self.acceleration = acceleration
+
+
+##########
+# CONTROLS
+##########
 
 class RandomMovementAI(Component):
 
@@ -45,21 +68,9 @@ class KeyboardController(Component):
         return self.right_pressed and not self.left_pressed
 
 
-class Velocity(Component):
-
-    def __init__(self, x: int, y: int) -> None:
-        self.name = 'Velocity'
-        self.x = x
-        self.y = y
-
-
-class Acceleration(Component):
-
-    def __init__(self, x: int, y: int) -> None:
-        self.name = 'Acceleration'
-        self.x = x
-        self.y = y
-
+##########
+# GRAPHICS
+##########
 
 class TextureSprite(Component):
 
@@ -75,11 +86,23 @@ class ShapeSprite(Component):
         self.shape = shape
 
 
+############
+# COLLISIONS
+############
+        
+class CollisionType(Enum):
+    BLOCKING = 0
+    PASSING = 1
+    BOUNCING = 2
+
+        
 class Collider(Component):
 
-    def __init__(self) -> None:
+    def __init__(self, bounding_box: Rectangle, collision_type: CollisionType) -> None:
         self.name = 'Collider'
         self.current_collisions = []
+        self.bounding_box = bounding_box
+        self.collision_type = collision_type
 
 
 class Interactive(Component):

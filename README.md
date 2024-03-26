@@ -3,16 +3,20 @@
 
 ## Now
 
-* Acceleration -> Gravity
-    * The Movement / Acceleration Systems are currently broken.
-    * I was able to get them to work up until a collision occurs, it seems we may need to revisit the collision system.
-
+* Improve Physics System Collisions
+    * Currently they works perfectly in one dimension along the y-axis
+    * Implement a more complex algorithm to stop / bounce at multiple angles
 
 ## Soon
 
-* I believe the code could be significantly improved by having systems inject events into each other.
-    * That said, a lot of advice online seems to be very anti-events so I need to do a little more research.
-    
+* First Game: PONG!
+    * Create 2 paddle entities
+        * ShapeSprite, KeyboardController, Collider(Bounce), Velocity, Position
+    * Create 1 ball entity
+        * ShapeSprite, Velocity, Position, Collider(Passing)
+    * Create 4 wall entities
+        * ShapeSprite, Position, Collider(Bounce)
+
 
 ## At Some Point
 
@@ -29,27 +33,13 @@
 
 * Interaction System Works But Needs Tidying
 
+* Rewrite Input System To Make Custom Button Mapping Easier
+    * Input Component Describes Possible Actions
+    * Keyboard Component Matches Buttons To Actions in Input Component
 
-# Notes
-## Collisions / Physics Engine
-
-### 25/03/24
-Some good work this morning on collisions. Have started builing a simple physics engine that works like this:
-
-* increments an entity along a straight line towards a target 
-* continually check for collisions
-* upon a collision stop movement
-* upon reaching destination stop movement
-
-This is a good first basic use case. Next tasks: 
-* fit it into my current ECS model
-* check that it works as intended (player should stop very close to blocker but not get stuck)
-
-Then after:
-* Implement different types of collisions
-    * pass through
-    * slide (like Mario)
-    * bounce (like pong)
+* Text Components / Data Components
+    * For storing a score or timer variable for example.
+    * Interaction Components could update these.
 
 
 

@@ -3,6 +3,8 @@ import random
 import arcade
 
 from kobold import entities
+from kobold.components import CollisionType
+from kobold.geometry import Vector
 
 
 class Key(Enum):
@@ -44,52 +46,69 @@ class InputSystem:
             self.keyboard[Key.RIGHT] = pressed
 
 
-class CollisionSystem:
-
-    @staticmethod
-    def collides(entity: entities.Entity, other: entities.Entity) -> bool:
-        to_left = entity.get_component('Position').x + 20 < other.get_component('Position').x - 20
-        to_right = entity.get_component('Position').x - 20 > other.get_component('Position').x + 20
-        above = entity.get_component('Position').y - 20 > other.get_component('Position').y + 20
-        below = entity.get_component('Position').y + 20 < other.get_component('Position').y - 20
-        return not (to_left or to_right or above or below)
+class PhysicsSystem:
 
     @staticmethod
     def update(entity: entities.Entity, entities: list[entities.Entity]) -> None:
-        if not (entity.has_component('Collider') and entity.has_component('Position') and entity.has_component('Velocity')):
-            return
-        for other in entities:
-            if other == entity:
-                continue
-            if not other.has_component('Collider'):
-                continue
-            if not CollisionSystem.collides(entity, other) and other in entity.get_component('Collider').current_collisions:
-                entity.get_component('Collider').current_collisions.remove(other)
-            if CollisionSystem.collides(entity, other) and other in entity.get_component('Collider').current_collisions:
-                continue
-            if CollisionSystem.collides(entity, other) and not other in entity.get_component('Collider').current_collisions:
-                entity.get_component('Collider').current_collisions.append(other)
-            
-
-class MovementSystem:
-    
-    @staticmethod
-    def update(entity: entities.Entity) -> None:
-        if not (entity.has_component('Velocity') and entity.has_component('Position')):
+        if not (entity.has_component('Position') and entity.has_component('Velocity')):
             return
         
-        if entity.has_component('Collider'):
-            current_collisions = entity.get_component('Collider').current_collisions
-            if current_collisions:
-                entity.get_component('Position').x = entity.get_component('Position').last_valid_x
-                entity.get_component('Position').y = entity.get_component('Position').last_valid_y
+        if entity.has_component('Acceleration'):
+            entity.get_component('Velocity').velocity += entity.get_component('Acceleration').acceleration
+        
+        if entity.get_component('Velocity').velocity == Vector(0, 0):
+            return
+        
+        starting_position = entity.get_component('Position').position
+        incremental_distance = entity.get_component('Velocity').velocity.unit_vector
+        total_distance = entity.get_component('Velocity').velocity.magnitude
+        moving = True
+
+        while moving:
+            entity.get_component('Position').position += incremental_distance
+            
+            # Arrived At Intended Destination
+            if (entity.get_component('Position').position - starting_position).magnitude >= total_distance:
+                moving = False
+
+            if not (entity.has_component('Collider') and entity.has_component('Velocity')):
+                continue
+
+            # Update Collider's Position
+            entity.get_component('Collider').bounding_box.center = entity.get_component('Position').position
+
+            other_collidables = [e for e in entities if e.has_component('Collider') and e != entity]
+            
+            # Check For Collisions
+            for other in other_collidables:
+
+                # If there's no collision then check if other needs to be removed from current collsions list
+                if not entity.get_component('Collider').bounding_box.intersects(other.get_component('Collider').bounding_box):
+                    if other in entity.get_component('Collider').current_collisions:
+                        entity.get_component('Collider').current_collisions.remove(other)
+                    continue
+
+                # If entity is already colliding with other then nothing needs to happen
+                if other in entity.get_component('Collider').current_collisions:
+                    continue
                 
-        entity.get_component('Position').last_valid_x = entity.get_component('Position').x
-        entity.get_component('Position').last_valid_y = entity.get_component('Position').y
-        entity.get_component('Position').x += entity.get_component('Velocity').x
-        entity.get_component('Position').y += entity.get_component('Velocity').y
-        entity.get_component('Velocity').x = 0
-        entity.get_component('Velocity').y = 0
+                # Add other to current collisions list
+                entity.get_component('Collider').current_collisions.append(other)
+
+                # Handle Different Collision Types
+                if other.get_component('Collider').collision_type is CollisionType.BLOCKING:
+                    print("BANG")
+                    entity.get_component('Position').position -= incremental_distance
+                    entity.get_component('Velocity').velocity.y = 0  # This only works for vertical collisions, need to use something more complex for all angles
+                    moving = False
+
+                if other.get_component('Collider').collision_type is CollisionType.PASSING:
+                    pass
+
+                if other.get_component('Collider').collision_type is CollisionType.BOUNCING:
+                    entity.get_component('Position').position -= incremental_distance
+                    entity.get_component('Velocity').velocity.y *= -1  # This only works for vertical collisions, need to use something more complex for all angles
+                    moving = False
                 
             
 class TextureRendererSystem:
@@ -97,7 +116,7 @@ class TextureRendererSystem:
     @staticmethod
     def update(entity: entities.Entity) -> None:
         if entity.has_component('TextureSprite') and entity.has_component('Position'):
-            entity.get_component('TextureSprite').texture.draw_scaled(entity.get_component('Position').x, entity.get_component('Position').y)
+            entity.get_component('TextureSprite').texture.draw_scaled(entity.get_component('Position').position.x, entity.get_component('Position').position.y)
 
 
 class ShapeRendererSystem:
@@ -116,8 +135,7 @@ class RandomAIMovementSystem:
             if entity.get_component('RandomMovementAI').counter > 0:
                 entity.get_component('RandomMovementAI').counter -= 1
             else:
-                entity.get_component('Velocity').x = random.randint(-2, 2)
-                entity.get_component('Velocity').y = random.randint(-2, 2)
+                entity.get_component('Velocity').velocity = Vector(random.randint(-2, 2), random.randint(-2, 2))
                 entity.get_component('RandomMovementAI').counter = 50
 
 
@@ -129,14 +147,20 @@ class ControllerSystem:
             return
         
         keyboard = InputSystem.get_instance().keyboard
+
         if keyboard[Key.UP] and not keyboard[Key.DOWN]:
-            entity.get_component('Velocity').y = 5
+            entity.get_component('Velocity').velocity.y = 5
         if keyboard[Key.DOWN] and not keyboard[Key.UP]:
-            entity.get_component('Velocity').y = -5
+            entity.get_component('Velocity').velocity.y = -5
         if keyboard[Key.LEFT] and not keyboard[Key.RIGHT]:
-            entity.get_component('Velocity').x = -5
+            entity.get_component('Velocity').velocity.x = -5
         if keyboard[Key.RIGHT] and not keyboard[Key.LEFT]:
-            entity.get_component('Velocity').x = 5
+            entity.get_component('Velocity').velocity.x = 5
+
+        if not keyboard[Key.UP] and not keyboard[Key.DOWN]:
+            entity.get_component('Velocity').velocity.y = 0
+        if not keyboard[Key.LEFT] and not keyboard[Key.RIGHT]:
+            entity.get_component('Velocity').velocity.x = 0
 
 
 class InteractionSystem:

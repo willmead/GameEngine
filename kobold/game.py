@@ -1,6 +1,6 @@
 import arcade
 
-from kobold.systems import CollisionSystem, InteractionSystem, MovementSystem, InputSystem, ControllerSystem, RandomAIMovementSystem, ShapeRendererSystem, TextureRendererSystem
+from kobold.systems import OldCollisionSystem, InteractionSystem, InputSystem, ControllerSystem, RandomAIMovementSystem, ShapeRendererSystem, TextureRendererSystem, PhysicsSystem
 import kobold.entities
 
 
@@ -33,8 +33,8 @@ class Camera:
     def update(self) -> None:
         if not self.following:
             return
-        self.x = self.entity_to_follow.get_component('Position').x
-        self.y = self.entity_to_follow.get_component('Position').y
+        self.x = self.entity_to_follow.get_component('Position').position.x
+        self.y = self.entity_to_follow.get_component('Position').position.y
 
 
 class Scene:
@@ -53,11 +53,10 @@ class Scene:
     def update(self) -> None:
         self.camera.update()
         for entity in self.entities:
-            MovementSystem.update(entity)
             ControllerSystem.update(entity)
+            PhysicsSystem.update(entity, self.entities)
             RandomAIMovementSystem.update(entity)
-            # CollisionSystem.update(entity, self.entities)
-            # InteractionSystem.update(entity, self.entities)
+            InteractionSystem.update(entity, self.entities)
 
     def draw(self) -> None:
         arcade.set_viewport(self.camera.x - 640, self.camera.x + 640, self.camera.y - 360, self.camera.y + 360)
